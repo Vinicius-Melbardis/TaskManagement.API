@@ -76,5 +76,5 @@ public class TasksController : ControllerBase // Herda de ControllerBase para te
         }
 
         return NoContent(); // Retorna 204 porque a exclusão foi concluída com sucesso
-    }  
+    }
 }
