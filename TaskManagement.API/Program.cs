@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore; // Importa o EF Core porque o UseSQLServer vem dessa biblioteca
+using Microsoft.OpenApi; // Importa o OpenApiInfo para personalizar o Swagger
 using TaskManagement.API.Data; // Importa o AppDbContext para registrá-lo na aplicação
 using TaskManagement.API.Services; // Importa o TaskService para o Program.cs conseguir registrá-lo como um serviço e injetá-lo nos Controllers quando necessário
 
@@ -6,11 +7,21 @@ var builder = WebApplication.CreateBuilder(args); // Cria o builder principal qu
 
 builder.Services.AddControllers(); // Ativa o uso de Controllers porque a API será organizada por classes e rotas
 builder.Services.AddEndpointsApiExplorer(); // Permite que o Swagger descubra os endpoints criados pelos Controllers
-builder.Services.AddSwaggerGen(); // Gera documentação interativa da API usando Swagger para teste no navegador
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddSwaggerGen(options => // Configura a geração da documentação OpenAPI/Swagger
+{
+    options.SwaggerDoc("v1", new OpenApiInfo // Define as informações principais da documentação, como título e versão
+    {
+        Title = "Task Management API", // Nome exibido no Swagger UI
+        Version = "v1", // Versão inicial da API
+        Description = "API for task management with CRUD endpoints" // Descrição curta do objetivo da API
+    });
+});
+
+builder.Services.AddDbContext<AppDbContext>(options => // Registra o DbContext no container de injeção de dependência
 
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")
     )); // Lê a string de conexão do appsettings.json e conecta o EF Core ao SQL Server usando o AppDbContext para gerenciar o banco de dados
+
 builder.Services.AddScoped<TaskService>(); // Registra o TaskService por requisição para que ele possa ser injetado nos Controllers e centralizar a lógica de negócio das tarefas
 
 var app = builder.Build(); // Constrói a aplicação com todos os serviços e configurações definidas
