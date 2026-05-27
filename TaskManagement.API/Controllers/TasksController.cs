@@ -23,8 +23,8 @@ public class TasksController : ControllerBase // Herda de ControllerBase para te
     {
         var task = new TaskItem // Converte o DTO de entrada em entidade para manter a persistência separada do contrato HTTP
         {
-            Title = dto.Title, // Copia o título validado pelo DTO para a entidade que será salva no banco de dados
-            Description = dto.Description, // Copia a descrição informada para a entidade preservando o contrato de entrada
+            Title = dto.Title ?? string.Empty, // Copia o título validado pelo DTO para a entidade que será salva no banco de dados
+            Description = dto.Description ?? string.Empty, // Copia a descrição informada para a entidade preservando o contrato de entrada
         };
 
         _taskService.Create(task); // Delega a criação para a camada de serviço para manter a regra de negócio centralizada e o controller focado em lidar com HTTP
@@ -32,8 +32,8 @@ public class TasksController : ControllerBase // Herda de ControllerBase para te
         var response = new TaskResponseDto // Converte a entidade persistida em DTO para devolver apenas os dados necessários ao cliente
         {
             Id = task.Id, // Retorna o identificador gerado para permitir referência futura ao recurso criado
-            Title = task.Title, // Retorna o título persistido para confirmar os dados salvos
-            Description = task.Description, // Retorna a descrição persistida para manter a consistêncua da resposta
+            Title = task.Title ?? string.Empty, // Retorna o título persistido para confirmar os dados salvos
+            Description = task.Description ?? string.Empty, // Retorna a descrição persistida para manter a consistêncua da resposta
             IsCompleted = task.IsCompleted, // Retorna o estado atual da tarefa para o cliente conhecer a situação inicial do recurso
             CreatedAt = task.CreatedAt // Retorna a data de criação para dar contexto temporal ao registro criado
         };
@@ -51,17 +51,27 @@ public class TasksController : ControllerBase // Herda de ControllerBase para te
     }
 
     [HttpGet("{id}")] // Expõe este método como GET /api/v1/tasks/{id} para retornar uma tarefa específica por ID
-    [ProducesResponseType(typeof(TaskItem), StatusCodes.Status200OK)] // Documenta no Swagger o retorno de sucesso da busca individual
+    [ProducesResponseType(typeof(TaskResponseDto), StatusCodes.Status200OK)] // Documenta que o sucesso devolve o DTO de saída
     [ProducesResponseType(StatusCodes.Status404NotFound)] // Documenta o retorno quando a tarefa não existe
-    public ActionResult<TaskItem> GetById(int id) // Recebe o id pela rota e retorna a tarefa correspondente
+    public ActionResult<TaskResponseDto> GetById(int id) // Retorna um DTO ou um resultado de erro, mantendo o contrato da API limpo
     {
         var task = _taskService.GetById(id); // Delega a busca ao service para manter o controller focado em HTTP
 
-        if (task is null) // Verifica se nenhuma tarefa foi encontrada para o id informado
+        if (task is null) // Verifica se nenhuma tarefa foi encontrada para o id informado, antes de montar a resposta
         {
             return NotFound(); // Retorna HTTP 404 porque o recurso solicitado não existe
         }
-        return Ok(task); // Retorna 200 com a tarefa encontrada no corpo da resposta, usando Ok para seguir a convenção REST de indicar que a requisição foi bem-sucedida e o recurso está sendo retornado
+
+        var response = new TaskResponseDto // Converte a entidade para DTO de saída
+        {
+            Id = task.Id, // Retorna o identificador para o cliente localizar o recurso
+            Title = task.Title ?? string.Empty, // Retorna o título persistido e garante que o DTO nunca receba null em uma propriedade string obrigatória
+            Description = task.Description ?? string.Empty, // Retorna a descrição persistida e garante que o DTO nunca receba null em uma propriedade string obrigatória
+            IsCompleted = task.IsCompleted, // Retorna o estado atual da tarefa
+            CreatedAt = task.CreatedAt // Retorna a data de criação para o contexto temporal
+        };
+
+        return Ok(response); // Retorna HTTP 200 com o DTO de saída
     }
 
     [HttpPut("{id}")] // Expõe este método como PUT /api/v1/tasks/{id} no Swagger para atualizar uma tarefa existente
