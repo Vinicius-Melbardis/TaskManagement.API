@@ -42,12 +42,22 @@ public class TasksController : ControllerBase // Herda de ControllerBase para te
     }
     
     [HttpGet] // Expõe este método como GET /api/v1/tasks para retornar todas as tarefas
-    [ProducesResponseType(typeof(List<TaskItem>), StatusCodes.Status200OK)] // Documenta no Swagger o retorno de sucesso da listagem
+    [ProducesResponseType(typeof(List<TaskResponseDto>), StatusCodes.Status200OK)] // Documenta no Swagger que o retorno de sucesso é uma lista de DTOs de resposta
     
-    public ActionResult<List<TaskItem>> GetAll() // Retorna a coleção de tarefas cadastradas
+    public ActionResult<List<TaskResponseDto>> GetAll() // Retorna uma lista de DTOs de resposta em vez de expor a entidade diretamente
     {
         var tasks = _taskService.GetAll(); // Delega a consulta ao service para manter o controller limpo e focado em lidar com requisições e respostas
-        return Ok(tasks); // Retorna HTTP 200 com a lista de tarefas serializada em JSON no corpo da resposta
+        
+        var response = tasks.Select(task => new TaskResponseDto // Converte cada entidade em um DTO de resposta
+        {
+            Id = task.Id, // Retorna o identificador para cada tarefa na lista
+            Title = task.Title ?? string.Empty, // Garante que o título nunca venha como null no DTO de resposta
+            Description = task.Description ?? string.Empty, // Retora a descrição persistida e garante que o DTO nunca receba null em uma propriedade string obrigatória
+            IsCompleted = task.IsCompleted, // Retorna o estado atual de cada tarefa
+            CreatedAt = task.CreatedAt // Retorna a data de criação para cada tarefa na lista
+        }).ToList(); // Converte o resultado da projeção para uma lista concreta para retornar ao cliente
+
+        return Ok(response); // Retorna HTTP 200 com a lista de DTOs de resposta para o cliente consumir os dados das tarefas disponíveis
     }
 
     [HttpGet("{id}")] // Expõe este método como GET /api/v1/tasks/{id} para retornar uma tarefa específica por ID
