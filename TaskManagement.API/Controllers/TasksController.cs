@@ -88,8 +88,15 @@ public class TasksController : ControllerBase // Herda de ControllerBase para te
     [ProducesResponseType(StatusCodes.Status204NoContent)] // Documenta no Swagger o sucesso da atualização sem corpo de resposta
     [ProducesResponseType(StatusCodes.Status404NotFound)] // Documenta o retorno quando a tarefa não existe
     [ProducesResponseType(StatusCodes.Status400BadRequest)] // Documenta um possível retorno de erro de validação/regra de negócio
-    public IActionResult Update(int id, TaskItem task) // Recebe o id pela rota e o estado atualizado no corpo da requisição para atualizar a tarefa correspondente
+    public IActionResult Update(int id, UpdateTaskDto dto) // Recebe um DTO de atualização para não expor a entidade diretamente no contrato HTTP e manter a separação de camadas
     {
+        var task = new TaskItem // Converte o DTO em entidade para reutilizar o contrato atual esperado pela camada de serviço
+        {
+            Title = dto.Title, // Copia o título validado para a entidade que será atualizada no banco de dados
+            Description = dto.Description, // Copia a descrição enviada pelo cliente para manter consistência com o contrato HTTP
+            IsCompleted = dto.IsCompleted // Copia o estado da tarefa para permitir atualização controlada desse campo
+        };
+
         var updated = _taskService.Update(id, task); // Delega a atualização ao service para manter o controller focado em HTTP
 
         if (!updated) // Verifica se o service informou que o recurso não foi encontrado
