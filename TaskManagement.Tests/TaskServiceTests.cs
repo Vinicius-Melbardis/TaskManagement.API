@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore; // Importa o EF Core para usar o banco de dados em memória nos testes
+﻿using System;
+using Microsoft.EntityFrameworkCore; // Importa o EF Core para usar o banco de dados em memória nos testes
 using TaskManagement.API.Data; // Importa o AppDbContext porque o service depende dele para acessar as tarefas
 using TaskManagement.API.Entities; // Importa a entidade TaskItem porque o método Update recebe esse tipo como entrada
 using TaskManagement.API.Services; // Importa o TaskService porque este é o serviço que será testado para garantir que a lógica de atualização de tarefas funcione corretamente
@@ -52,5 +53,90 @@ public class TaskServiceTests // Agrupa os testes relacionados ao comportamento 
         Assert.Equal("Updated title", savedTask!.Title); // Verifica que o título persistido no banco em memória foi atualizado corretamente
         Assert.Equal("Updated description", savedTask.Description); // Verifica que a descrição persistida foi atualizada corretamente
         Assert.True(savedTask.IsCompleted); // Verifica que o status persistido foi alterado para concluído
+    }
+
+    [Fact] // Marca o método como um teste unitário executável pelo xUnit
+    public void Update_ShouldThrowException_WhenTitleIsEmpty() // Define um nome descritivo para deixar claro que o teste cobre a validação de título obrigatório no Update
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>() // Cria o builder das opções do contexto porque o EF Core precisa dessas configurações para instanciar o banco de dados em memória
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Usa um banco em memória com nome único para garantir isolamento deste teste
+            .Options; // Finaliza a configuração e gera o objeto de opções do contexto
+        
+        using var context = new AppDbContext(options); // Cria o contexto de teste para simular o acesso a dados sem depender de banco real
+        var task = new TaskItem // Cria uma tarefa válida inicial porque o Update precisa encontrar um registro existente antes de validar a alteração
+        {
+            Title = "Original title", // Define um título inicial válidado para a tarefa já persistida
+            Description = "Original description", // Define uma descrição inicial apenas para compor a entidade salva
+            IsCompleted = false // Define um status inicial para completar o registro que será atualizado
+        };
+
+        context.Tasks.Add(task); // Adiciona a tarefa ao contexto para que ela exista no banco em memória antes de tentar atualizá-la
+        context.SaveChanges(); // Persiste a tarefa para garantir que o método Update encontre o id informado
+
+        var service = new TaskService(context); // Instancia o service com o contexto que contém a tarefa salva
+        var updatedTask = new TaskItem // Cria o objeto com dados inválidos que serão enviados para o Update, especificamente com título vazio para testar a validação
+        {
+            Title = "", // Define um título vazio para acionar a regra de negócio que exige título obrigatório
+            Description = "Updated description", // Define uma descrição qualquer porque o foco do teste está no título inválido
+            IsCompleted = true // Define um status qualquer porque o foco do teste não é o campo de conclusão
+        };
+
+        Action act = () => service.Update(task.Id, updatedTask); // Encapsula a chamada do método em uma Action para permitir a asserção da exceção no padrão Arrange-Act-Assert do xUnit
+
+        var exception = Assert.Throws<Exception>(act); // Verifica que o método lança uma exceção quando o título enviado está vazio
+        Assert.Equal("Title is required.", exception.Message); // Confirma que a mensagem da exceção corresponde exatamente à regra implementada no service
+    }
+
+    [Fact] // Marca o método como um teste unitário executável pelo xUnit
+    public void Create_ShouldCreateTask_WhenDataIsValid() // Define um nome descritivo para deixar claro que o teste cobre o cenário de sucesso do Create
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>() // Cria o builder das opções do contexto porque o EF Core precisa dessa configuração para montar o banco em memória
+        .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Usa um banco em memória com nome único para garantir isolamento total deste teste
+        .Options; // Finaliza a configuração e gera o objeto de opções que será usado pelo AppDbContext
+
+        using var context = new AppDbContext(options); // Cria o contexto de teste para simular persistência sem usar banco real
+        var service = new TaskService(context); // Instancia o service com o contexto de teste para exercitar a lógica real do método Create
+
+        var task = new TaskItem // Cria a tarefa de entrada com os dados válidos para testar o fluxo normal de criação
+        {
+            Title = "New task", // Define um título válido porque esse campo é obrigatório pela regra de negócio
+            Description = "Task description", // Define uma descrição qualquer para compor uma entidade válida de entrada
+            IsCompleted = true // Define true de propósito para validar que o método sobrescreve esse valor para false
+        };
+
+        var result = service.Create(task); // Executa o método Create para salvar a tarefa e aplicar as regras internas do service
+        var savedTask = context.Tasks.Find(result.Id); // Busca a tarefa persistida no banco em memória para validar o que foi realmente salvo
+
+        Assert.NotNull(result); // Verifica que o método retornou uma entidade em vez de null
+        Assert.True(result.Id > 0); // Verifica que a tarefa recebeu um Id válido após ser salva no banco em memória
+        Assert.Equal("New task", result.Title); // Confirma que o título retornado corresponde ao valor enviado na criação
+        Assert.Equal("Task description", result.Description); // Confirma que a descrição retornada foi mantida corretamente
+        Assert.False(result.IsCompleted); // Verifica a regra de negócio que força toda tarefa nova a começar como não concluída
+        Assert.True(result.CreatedAt <= DateTime.UtcNow); // Verifica que a data de criação foi preenchida pelo service no momento da criação
+        Assert.NotNull(savedTask); // Garante que a tarefa foi realmente persistida no contexto de teste e não apenas retornada pelo método Create
+        Assert.False(savedTask!.IsCompleted); // Revalida na entidade salva que o banco ficou com IsCompleted igual a false, confirmando a regra de negócio aplicada no service
+    }
+
+    [Fact] // Marca o método como um teste unitário executável pelo xUnit
+    public void Create_ShouldThrowException_WhenTitleIsEmpty() // Define um nome descritivo para deixar claro que o teste cobre a validação de título obrigatório no Create
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>() // Cria o builder das opções do contexto porque o EF Core precisa dessa configuração para montar o banco em memória
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Usa um banco em memória com nome único para garantir que este teste fique isolado dos demais
+            .Options; // Finaliza a configuração e gera o objeto de opções que será usado pelo AppDbContext
+
+            using var context = new AppDbContext(options); // Cria o contexto de teste para simular persistência sem usar banco real
+            var service = new TaskService(context); // Instancia o service com o contexto de teste para exercitar a lógica real do método Create
+
+            var task = new TaskItem // Cria a tarefa de entrada com dados inválidos para acionar a regra de negócio
+            {
+                Title = "", // Define um título vazio porque esse é exatamente o cenário que deve disparar a exceção de validação
+                Description = "Task description", // Define uma descrição qualquer porque o foco do teste está apenas na obrigatoriedade do título
+                IsCompleted = false // define um valor qualquer para completar o objeto de entrada, sem interferir no cenário validado
+            };
+
+            Action act = () => service.Create(task); // Encapsula a chamada do método em uma Action para permitir a asserção da exceção no padrão Arrange-Act-Assert do xUnit
+
+            var exception = Assert.Throws<Exception>(act); // Verifica que o método lança exceção quando recebe título vazio, confirmando que a validação está funcionando corretamente
+            Assert.Equal("Title is required.", exception.Message); // Confirma que a mensagem lançada corresponde exatamente à regra implementada no service
     }
 }
