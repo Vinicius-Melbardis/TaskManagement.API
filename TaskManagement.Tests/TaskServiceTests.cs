@@ -139,4 +139,45 @@ public class TaskServiceTests // Agrupa os testes relacionados ao comportamento 
             var exception = Assert.Throws<Exception>(act); // Verifica que o método lança exceção quando recebe título vazio, confirmando que a validação está funcionando corretamente
             Assert.Equal("Title is required.", exception.Message); // Confirma que a mensagem lançada corresponde exatamente à regra implementada no service
     }
+
+    [Fact] // Marca o método como um teste unitário executável pelo xUnit
+    public void Delete_ShouldReturnFalse_WhenTaskDoesNotExist() // Define um nome descritivo para deixar claro que o teste cobre o cenário que o id informado não existe
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>() // Cria o builder das opções do contexto porque o EF Core precisa dessa configuração para montar o banco em memória
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Usa um banco em memória com nome único para garantir que este teste fique isolado dos demais
+            .Options; // Finaliza a configuração e gera o objeto de opções que será usado pelo AppDbContext
+
+        using var context = new AppDbContext(options); // Cria o contexto de teste para simular o acesso a dados sem usar banco real
+        var service = new TaskService(context); // Instancia o service com o contexto de teste para exercitar a lógica real do método Delete
+
+        var result = service.Delete(999); // Executa o método com um id inexistente para validar o comportamento quando a tarefa não é encontrada
+
+        Assert.False(result); // Verifica que o retorno foi false porque o service deve sinalizar falha quando o id não existe
+    }
+
+    [Fact] // Marca o método como um teste unitário executável pelo xUnit
+    public void Delete_ShouldReturnTrue_WhenTaskExists() // Define um nome descritivo para deixar claro que o teste cobre um cenário em que a tarefa existe e deve ser removida
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>() // Cria o builder das opções do contexto porque o EF Core precisa dessa configuração para montar o banco em memória
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Usa um banco em memória com nome único para garantir que este teste fique isolado dos demais
+            .Options; // Finaliza a configuração e gera o objeto de opções que será usado pelo AppDbContext
+
+        using var context = new AppDbContext(options); // Cria o contexto de teste para simular o acesso a dados sem usar banco real
+        var task = new TaskItem // Cria uma tarefa inicial porque o método Delete precisa de um registro existente para remover
+        {
+            Title = "Task to delete", // Define um título válido para montar uma entidade consistente no banco em memória
+            Description = "Task description", // Define uma descrição qualquer apenas para completar a entidade de teste
+            IsCompleted = false // Define um status inicial porque o foco do teste é a exclusão da tarefa, não seu conteúdo
+        };
+
+        context.Tasks.Add(task); // Adiciona a tarefa ao contexto para que ela passe a existir no banco em memória
+        context.SaveChanges(); // Persiste a tarefa para garantir que o método Delete encontre o id informado
+
+        var service = new TaskService(context); // Instancia o service com o contexto que contém a tarefa salva
+        var result = service.Delete(task.Id); // Executa o método Delete com o id real da tarefa salva para testar o caminho de sucesso
+        var deletedTask = context.Tasks.Find(task.Id); // Busca novamente a tarefa pelo id para validar se ela realmente foi removida do contexto
+
+        Assert.True(result); // Verifica que o método retornou true porque a tarefa existia e foi excluída com sucesso
+        Assert.Null(deletedTask); // Verifica que a tarefa não está mais no banco em memória após a exclusão
+    }
 }
