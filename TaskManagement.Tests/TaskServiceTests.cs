@@ -195,4 +195,37 @@ public class TaskServiceTests // Agrupa os testes relacionados ao comportamento 
 
         Assert.Null(result); // Verifica que o método retornou null porque nenhuma tarefa com esse id foi encontrada
     }
+
+    [Fact] // Marca o método como um teste unitário executável pelo xUnit
+    public void GetAll_ShouldReturnAllTasks() // Define um nome descritivo para deixar claro que o teste cobre o cenário em que o método deve retornar todas as tarefas existentes
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>() // Cria o builder das opções do contexto porque o EF Core precisa dessa configuração para montar o banco em memória
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Usa um banco em memória com nome único para garantir que este teste fique isolado dos demais
+            .Options; // Finaliza a configuração e gera o objeto de opções que será usado pelo AppDbContext
+
+        using var context = new AppDbContext(options); // Cria o contexto de teste para simular o acesso a dados sem usar banco real
+        context.Tasks.AddRange( // Adiciona mais de uma tarefa ao contexto porque o objetivo do teste é validar a listagem completa
+            new TaskItem
+            {
+                Title = "Task 1", // Define o título da primeira tarefa para que ela possa ser identificada na coleção retornada
+                Description = "Description 1", // Define uma descrição qualquer apenas para compor a entidade de teste
+                IsCompleted = false // Define um status inicial para completar a primeira entidade
+            },
+            new TaskItem
+            {
+                Title = "Task 2", // Define o título da segunda tarefa para que ela também possa ser identificada na coleção retornada
+                Description = "Description 2", // Define uma descrição qualquer apenas para compor a segunda entidade de teste
+                IsCompleted = true // Define um status diferente para mostrar que o método retorna itens variados
+            }
+        );
+        context.SaveChanges(); // Persiste as tarefas para garantir que o método GetAll tenha registros para retornar
+
+        var service = new TaskService(context); // Instancia o service com o contexto que contém as tarefas salvas
+        var result = service.GetAll(); // Executa o método GetAll para obter a coleção completa de tarefas existentes no banco em memória
+
+        Assert.NotNull(result); // Verifica que o método retornou uma coleção válida em vez de null
+        Assert.Equal(2, result.Count); // Confirma que a coleção retornada contém extamente as duas tarefas salvas no banco em memória
+        Assert.Contains(result, task => task.Title == "Task 1"); // Verifica que a primeira tarefa salva está presente na coleção retornada, garantindo que o método não filtrou ou perdeu registros
+        Assert.Contains(result, task => task.Title == "Task 2"); // Verifica que a segunda tarefa salva também está presente na coleção retornada
+    }
 }
