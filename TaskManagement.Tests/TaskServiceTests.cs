@@ -180,4 +180,19 @@ public class TaskServiceTests // Agrupa os testes relacionados ao comportamento 
         Assert.True(result); // Verifica que o método retornou true porque a tarefa existia e foi excluída com sucesso
         Assert.Null(deletedTask); // Verifica que a tarefa não está mais no banco em memória após a exclusão
     }
+
+    [Fact] // Marca o método como um teste unitário executável pelo xUnit
+    public void GetById_ShouldReturnNull_WhenTaskDoesNotExist() // Define um nome descritivo para deixar claro que o teste cobre o cenário em que o id informado não existe
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>() // Cria o builder das opções do contexto porque o EF Core precisa dessa configuração para montar o banco em memória
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Usa um banco em memória com nome único para garantir que este teste fique isolado dos demais
+            .Options; // Finaliza a configuração e gera o objeto de opções que será usado pelo AppDbContext
+
+        using var context = new AppDbContext(options); // Cria o contexto de teste para simular o acesso a dados sem usar banco real
+        var service = new TaskService(context); // Instancia o service com o contexto vazio para testar o comportamento quando não existe nenhuma tarefa com o id informado
+
+        var result = service.GetById(999); // Executa o método GetById com um id inexistente para validar o caminho negativo
+
+        Assert.Null(result); // Verifica que o método retornou null porque nenhuma tarefa com esse id foi encontrada
+    }
 }
