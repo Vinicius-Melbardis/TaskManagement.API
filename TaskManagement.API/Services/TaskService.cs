@@ -12,7 +12,7 @@ public class TaskService
     {
         if (string.IsNullOrWhiteSpace(task.Title))
         {
-            throw new Exception("Title is required.");
+            throw new ArgumentException("Title is required.", nameof(task.Title));
         }
         task.CreatedAt = DateTime.UtcNow;
         task.IsCompleted = false;
@@ -44,7 +44,7 @@ public class TaskService
 
         if (string.IsNullOrWhiteSpace(updatedTask.Title))
         {
-            throw new Exception("Title is required.");
+            throw new ArgumentException("Title is required.", nameof(updatedTask.Title));
         }
 
         existingTask.Title = updatedTask.Title;

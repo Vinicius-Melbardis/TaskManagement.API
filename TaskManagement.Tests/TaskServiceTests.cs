@@ -11,7 +11,7 @@ public class TaskServiceTests
     public void Update_ShouldReturnFalse_WhenTaskDoesNotExist()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(databaseName: Guide.NewGuid().ToString())
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
 
         using var context = new AppDbContext(options);
@@ -26,7 +26,7 @@ public class TaskServiceTests
 
         var result = service.Update(999, updatedTask);
 
-        assert.False(result);
+        Assert.False(result);
     }
 
     [Fact]
@@ -41,6 +41,17 @@ public class TaskServiceTests
         {
             Title = "Original title",
             Description = "Original description",
+            IsCompleted = true
+        };
+
+        context.Tasks.Add(task);
+        context.SaveChanges();
+
+        var service = new TaskService(context);
+        var updatedTask = new TaskItem
+        {
+            Title = "Updated title",
+            Description = "Updated description",
             IsCompleted = true
         };
 
@@ -82,8 +93,8 @@ public class TaskServiceTests
 
         Action act = () => service.Update(task.Id, updatedTask);
 
-        var exception = Assert.Throws<Exception>(act);
-        Assert.Equal("Title is required.", exception.Message);
+        var exception = Assert.Throws<ArgumentException>(act);
+        Assert.Equal("Title is required. (Parameter 'Title')", exception.Message);
     }
 
     [Fact]
@@ -135,8 +146,8 @@ public class TaskServiceTests
 
             Action act = () => service.Create(task);
 
-            var exception = Assert.Throws<Exception>(act);
-            Assert.Equal("Title is required.", exception.Message);
+            var exception = Assert.Throws<ArgumentException>(act);
+            Assert.Equal("Title is required. (Parameter 'Title')", exception.Message);
     }
 
     [Fact]
@@ -146,7 +157,7 @@ public class TaskServiceTests
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
 
-        using var context = new AppDbContext(options); // Cria o contexto de teste para simular o acesso a dados sem usar banco real
+        using var context = new AppDbContext(options);
         var service = new TaskService(context);
 
         var result = service.Delete(999);
@@ -184,6 +195,7 @@ public class TaskServiceTests
     public void GetById_ShouldReturnNull_WhenTaskDoesNotExist()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
 
         using var context = new AppDbContext(options);
